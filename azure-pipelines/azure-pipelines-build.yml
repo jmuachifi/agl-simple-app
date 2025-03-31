@@ -1,0 +1,103 @@
+# trigger: none
+#   # branches:
+#   #   include:
+#   #     - main
+#   #     - develop
+
+# pool:
+#   vmImage: 'ubuntu-latest'
+
+# variables:
+#   - group: AGL-Shared
+
+# stages:
+#   - stage: BuildAndScan
+#     jobs:
+#       - job: BuildImage
+#         steps:
+#           - template: templates/docker-build-template.yml
+#           - template: templates/scan-template.yml
+# trigger:
+#   branches:
+#     include:
+#       - main
+#       - develop
+
+# pool:
+#   vmImage: 'ubuntu-latest'
+
+# variables:
+#   - group: AGL-Shared
+
+# stages:
+#   - stage: BuildAndScan
+#     displayName: Build, Scan, and Publish Artifact
+#     jobs:
+#       - job: BuildImage
+#         displayName: Build Docker Image and Scan
+#         steps:
+#           - script: |
+#               IMAGE_EXISTS=$(curl -s -o /dev/null -w "%{http_code}" https://index.docker.io/v1/repositories/$(dockerImageName)/tags/$(buildTag))
+#               echo "Image status code: $IMAGE_EXISTS"
+#               if [ "$IMAGE_EXISTS" -eq 200 ]; then
+#                 echo "##vso[task.setvariable variable=skipBuild]true"
+#               fi
+#             displayName: Check if Docker Image Exists
+
+#           - ${{ if ne(variables['skipBuild'], 'true') }}:
+#               - template: templates/docker-build-template.yml
+
+#           - template: templates/scan-template.yml
+
+#           - script: echo "Build completed." > $(Build.ArtifactStagingDirectory)/build-info.txt
+#             displayName: Generate dummy artifact
+
+#           - publish: $(Build.ArtifactStagingDirectory)
+#             artifact: dockerBuildInfo
+#             displayName: Publish artifact to trigger release
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  - group: AGL-Shared
+
+stages:
+  - stage: BuildAndScan
+    displayName: Build, Scan, and Publish Artifact
+    jobs:
+      - job: BuildImage
+        displayName: Build Docker Image and Scan
+        steps:
+          - checkout: self
+          - bash: |
+              FILE_HASH=$(sha256sum index.html | awk '{print $1}')
+              echo "##vso[task.setvariable variable=fileHash]$FILE_HASH"
+            displayName: Generate file hash for index.html
+
+          - bash: |
+              if docker manifest inspect $(dockerRegistry)/$(dockerImageName):$(buildTag)-$(fileHash) > /dev/null 2>&1; then
+                  echo "##vso[task.logissue type=warning] Docker image already exists in registry"
+                  echo "##vso[task.setvariable variable=skipBuild]true"
+              else
+                  echo "Docker image does not exist. Proceeding with build."
+                  echo "##vso[task.setvariable variable=skipBuild]false"
+              fi
+            displayName: Check if Docker image exists
+
+          - ${{ if ne(variables.skipBuild, 'true') }}:
+              - template: templates/docker-build-template.yml
+
+          - template: templates/scan-template.yml
+
+          - script: echo "Build completed." > $(Build.ArtifactStagingDirectory)/build-info.txt
+            displayName: Generate dummy artifact
+
+          - publish: $(Build.ArtifactStagingDirectory)
+            artifact: dockerBuildInfo
+            displayName: Publish artifact to trigger release

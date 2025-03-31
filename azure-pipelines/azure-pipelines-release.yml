@@ -1,0 +1,42 @@
+stages:
+  - stage: Deploy_DEV
+    displayName: Deploy to DEV
+    variables:
+      - template: vars/dev-vars.yml
+    jobs:
+      - deployment: DeployDockerDev
+        environment: 'AGL-DEV'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: templates/docker-deploy-template.yml
+
+  - stage: Deploy_TEST
+    displayName: Deploy to TEST
+    dependsOn: Deploy_DEV
+    variables:
+      - template: vars/test-vars.yml
+    jobs:
+      - deployment: DeployDockerTest
+        environment: 'AGL-TEST'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: templates/docker-deploy-template.yml
+
+  - stage: Deploy_PROD
+    displayName: Deploy to PROD
+    dependsOn: Deploy_TEST
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    variables:
+      - template: vars/prod-vars.yml
+    jobs:
+      - deployment: DeployDockerProd
+        environment: 'AGL-PROD'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - template: templates/docker-deploy-template.yml

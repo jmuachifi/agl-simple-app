@@ -1,0 +1,5 @@
+variables:
+  dockerRegistryServiceConnection: 'DockerHubConnection'
+  dockerRegistry: 'docker.io'
+  dockerImageName: 'jmuachifi/agl-app'
+  buildTag: $(Build.BuildId)-$(Build.SourceVersion)'

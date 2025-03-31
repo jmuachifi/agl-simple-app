@@ -1,0 +1,24 @@
+steps:
+  - script: |
+      curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+      ./bin/trivy image --severity HIGH,CRITICAL --format json -o trivy-results.json $(dockerRegistry)/$(dockerImageName):$(buildTag)
+
+      VULNS=$(jq '.Results[].Vulnerabilities | length' trivy-results.json | awk '{sum += $1} END {print sum}')
+      echo "Found $VULNS vulnerabilities"
+
+      if [ "$VULNS" -gt 0 ]; then
+        echo "##vso[task.logissue type=error]Security vulnerabilities found: $VULNS"
+        echo "##vso[task.setvariable variable=vulnsFound;isOutput=true]true"
+      else
+        echo "##vso[task.setvariable variable=vulnsFound;isOutput=true]false"
+      fi
+    displayName: 'Scan Docker Image with Trivy'
+
+  - task: SendEmail@1
+    condition: eq(variables['vulnsFound'], 'true')
+    inputs:
+      To: 'dev.fastcloud@gmail.com'
+      Subject: '⚠️ Vulnerabilities found in Docker Image $(dockerImageName):$(buildTag)'
+      Body: 'Trivy found HIGH/CRITICAL vulnerabilities. Review build logs for details.'
+    displayName: 'Notify Security Team via Email'
+

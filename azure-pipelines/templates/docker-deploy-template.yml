@@ -1,0 +1,26 @@
+# steps:
+#   - script: |
+#       docker pull $(dockerRegistry)/$(dockerImageName):$(Build.BuildId)
+#       docker run -d -p 80:80 $(dockerRegistry)/$(dockerImageName):$(Build.BuildId)
+#     displayName: "Deploy Docker Container"
+steps:
+  # - script: |
+  #     echo "Pulling image: $(dockerRegistry)/$(dockerImageName):latest"
+  #     docker pull $(dockerRegistry)/$(dockerImageName):latest
+
+  #     echo "Stopping existing container if running..."
+  #     docker stop agl-dev || true
+  #     docker rm agl-dev || true
+
+  #     echo "Running new container"
+  #     docker run -d --name agl-dev -p 8080:80 $(dockerRegistry)/$(dockerImageName):latest
+  #   displayName: "Deploy Docker Container to AGL-DEV"
+
+  - task: AzureWebAppContainer@1
+    displayName: Deploy to Azure App Service 
+    inputs:
+      azureSubscription: 'azureServiceConnection'
+      appName: 'app-svc-demo'
+      containers: 'jmuachifi/agl-app:latest'
+
+
